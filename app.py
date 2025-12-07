@@ -734,12 +734,23 @@ class App(tk.Tk):
 
         if not self.prefix_section.winfo_children():
             self.prefix_song = tk.BooleanVar(value=True)
-            self.prefix_bpm = tk.BooleanVar(value=True)
+            self.prefix_bpm = tk.BooleanVar(value=False)
+            self.prefix_artist = tk.BooleanVar(value=True)
             # suffix "og"
-            self.suffix_og = tk.BooleanVar(value=False)
+            self.suffix_og = tk.BooleanVar(value=True)
 
             pf = tk.Frame(self.prefix_section, bg="#0d1117")
             pf.pack(pady=20)
+            tk.Checkbutton(
+                pf,
+                text="Prefix: Artist Name",
+                variable=self.prefix_artist,
+                font=("Monaco", 13),
+                fg="#f0f6fc",
+                bg="#0d1117",
+                selectcolor="#21262d",
+            ).pack(side=tk.LEFT, padx=20)
+
             tk.Checkbutton(
                 pf,
                 text="Prefix: Song Name",
@@ -748,7 +759,7 @@ class App(tk.Tk):
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=30)
+            ).pack(side=tk.LEFT, padx=20)
             tk.Checkbutton(
                 pf,
                 text="Prefix: BPM",
@@ -757,7 +768,7 @@ class App(tk.Tk):
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=30)
+            ).pack(side=tk.LEFT, padx=20)
             tk.Checkbutton(
                 pf,
                 text="Suffix: og",
@@ -766,7 +777,7 @@ class App(tk.Tk):
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=30)
+            ).pack(side=tk.LEFT, padx=20)
         self.prefix_section.pack()
 
         self.update_save_state()
@@ -1114,6 +1125,93 @@ class App(tk.Tk):
         ).pack(side=tk.RIGHT, padx=(0, 60), pady=20)
 
     def save(self):
+        if not self.files:
+            self.log("No file selected!", "#f85149")
+            self.update_save_state()
+            return
+        if not all(
+            [
+                self.type_dd.get(),
+                (
+                    getattr(self, "subtype_dd", None).get()
+                    if hasattr(self, "subtype_dd")
+                    else ""
+                ),
+                (
+                    getattr(self, "artist_dd", None).get()
+                    if hasattr(self, "artist_dd")
+                    else ""
+                ),
+                (
+                    getattr(self, "song_dd", None).get()
+                    if hasattr(self, "song_dd")
+                    else ""
+                ),
+                self.name_var.get().strip(),
+            ]
+        ):
+            self.log("Fill all fields!", "#f85149")
+            self.update_save_state()
+            return
+
+        song_name = self.song_dd.get()
+        artist = self.artist_dd.get()
+        bpm = next(
+            s["bpm"]
+            for s in self.config["artists"][artist]["songs"]
+            if s["name"] == song_name
+        )
+
+        parts = [
+            p
+            for p in [self.type_dd.get(), self.subtype_dd.get(), artist, song_name]
+            if p
+        ]
+        target = ROOT_DIR.joinpath(*parts)
+        target.mkdir(parents=True, exist_ok=True)
+
+        src = self.files[0]
+        base = self.name_var.get().strip()
+
+        prefix_parts = []
+
+        # always include subtype if present (with your intentional [:-1])
+        subtype = (
+            self.subtype_dd.get()
+            if hasattr(self, "subtype_dd") and self.subtype_dd.get()
+            else ""
+        )
+        if subtype:
+            prefix_parts.append(subtype.replace(" ", "_")[:-1])
+
+        # optional prefixes (BPM / artist / song)
+        if self.prefix_bpm.get():
+            prefix_parts.append(str(bpm))
+        if hasattr(self, "prefix_artist") and self.prefix_artist.get():
+            prefix_parts.append(artist.replace(" ", "_"))
+        if self.prefix_song.get():
+            prefix_parts.append(song_name.replace(" ", "_"))
+
+        name = base
+        if prefix_parts:
+            name = "_".join(prefix_parts) + "_" + name
+
+        # optional suffix
+        if hasattr(self, "suffix_og") and self.suffix_og.get():
+            name = name + "_og"
+
+        dest = target / (name + src.suffix)
+        if dest.exists():
+            self.log("File not saved — target filename already exists", "#ffa657")
+            return
+
+        shutil.copy2(src, dest)
+        self.log(f"SAVED 1 file → {target.name}", "#58a6ff")
+
+        self.clear_files_only()
+        self.update_existing_files()
+        self.update_save_state()
+
         if not self.files:
             self.log("No file selected!", "#f85149")
             self.update_save_state()
