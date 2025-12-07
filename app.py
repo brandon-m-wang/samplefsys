@@ -34,7 +34,6 @@ class SearchableDropdown:
         self.all_values = sorted(values, key=str.lower)
 
         frame = tk.Frame(parent, bg="#0d1117")
-        # Single source of vertical spacing between dropdowns
         frame.pack(fill="x", pady=10, padx=20)
 
         tk.Label(
@@ -171,19 +170,19 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("sample fsys")
-        self.geometry("1100x960")
+        self.geometry("1100x1010")
         self.configure(bg="#0d1117")
 
         # ttk style (for scrollbar)
         self.style = ttk.Style(self)
         try:
-            self.style.theme_use("clam")  # non-Aqua, lets us color stuff
+            self.style.theme_use("clam")
         except tk.TclError:
             pass
         self.style.configure(
             "Stash.Vertical.TScrollbar",
-            background="#21262d",  # thumb
-            troughcolor="#0d1117",  # track
+            background="#21262d",
+            troughcolor="#0d1117",
             bordercolor="#0d1117",
             arrowcolor="#8b949e",
         )
@@ -353,6 +352,16 @@ class App(tk.Tk):
 
         self.sample_name_section = tk.Frame(self.form, bg="#0d1117")
         self.prefix_section = tk.Frame(self.form, bg="#0d1117")
+
+        # filename preview label (below scroll area, above save button), hidden initially
+        self.filename_preview_label = tk.Label(
+            self,
+            text="Filename preview:",
+            font=("Monaco", 13),
+            fg="#58a6ff",
+            bg="#0d1117",
+        )
+        # not packed yet — only when constraints are met
 
         # SAVE button starts grey/disabled, turns green when ready
         self.save_btn = Button(
@@ -536,6 +545,16 @@ class App(tk.Tk):
                 fg="#8b949e",
                 activebackground="#30363d",
             )
+
+        # handle filename preview visibility + content
+        if ready:
+            if not self.filename_preview_label.winfo_ismapped():
+                # ensure it sits above the save button
+                self.filename_preview_label.pack(pady=(45, 0), before=self.save_btn)
+            self.update_filename_preview()
+        else:
+            if self.filename_preview_label.winfo_ismapped():
+                self.filename_preview_label.pack_forget()
 
     def update_status(self):
         if self.files:
@@ -727,65 +746,87 @@ class App(tk.Tk):
             )
             name_entry.pack()
 
-            # whenever sample name changes, re-eval save readiness
             self.name_var.trace_add("write", lambda *args: self.update_save_state())
 
         self.sample_name_section.pack(fill="x", pady=25)
 
         if not self.prefix_section.winfo_children():
+            # defaults
             self.prefix_song = tk.BooleanVar(value=True)
             self.prefix_bpm = tk.BooleanVar(value=False)
             self.prefix_artist = tk.BooleanVar(value=True)
-            # suffix "og"
+            self.prefix_key = tk.BooleanVar(value=False)
             self.suffix_og = tk.BooleanVar(value=True)
 
-            pf = tk.Frame(self.prefix_section, bg="#0d1117")
-            pf.pack(pady=20)
+            # row 1: up to 3 checkboxes
+            row1 = tk.Frame(self.prefix_section, bg="#0d1117")
+            row1.pack(pady=(10, 5))
+            # row 2: remaining
+            row2 = tk.Frame(self.prefix_section, bg="#0d1117")
+            row2.pack(pady=(0, 10))
+
             tk.Checkbutton(
-                pf,
+                row1,
                 text="Prefix: Artist Name",
                 variable=self.prefix_artist,
+                command=self.update_filename_preview,
                 font=("Monaco", 13),
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=20)
+            ).pack(side=tk.LEFT, padx=15)
 
             tk.Checkbutton(
-                pf,
+                row1,
                 text="Prefix: Song Name",
                 variable=self.prefix_song,
+                command=self.update_filename_preview,
                 font=("Monaco", 13),
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=20)
+            ).pack(side=tk.LEFT, padx=15)
+
             tk.Checkbutton(
-                pf,
+                row1,
                 text="Prefix: BPM",
                 variable=self.prefix_bpm,
+                command=self.update_filename_preview,
                 font=("Monaco", 13),
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=20)
+            ).pack(side=tk.LEFT, padx=15)
+
             tk.Checkbutton(
-                pf,
+                row2,
+                text="Prefix: Key",
+                variable=self.prefix_key,
+                command=self.update_filename_preview,
+                font=("Monaco", 13),
+                fg="#f0f6fc",
+                bg="#0d1117",
+                selectcolor="#21262d",
+            ).pack(side=tk.LEFT, padx=15)
+
+            tk.Checkbutton(
+                row2,
                 text="Suffix: og",
                 variable=self.suffix_og,
+                command=self.update_filename_preview,
                 font=("Monaco", 13),
                 fg="#f0f6fc",
                 bg="#0d1117",
                 selectcolor="#21262d",
-            ).pack(side=tk.LEFT, padx=20)
-        self.prefix_section.pack()
+            ).pack(side=tk.LEFT, padx=15)
 
+        self.prefix_section.pack(pady=(0, 25))
         self.update_save_state()
 
     def add_item(self, kind):
         win = tk.Toplevel(self)
         win.title(f"Add {kind.capitalize()}")
-        win.geometry("500x400" if kind != "song" else "500x490")
+        win.geometry("500x400" if kind != "song" else "500x540")
         win.configure(bg="#161b22")
         win.transient(self)
         win.grab_set()
@@ -797,11 +838,11 @@ class App(tk.Tk):
                 return
             tk.Label(
                 win,
-                text="New Song + BPM",
+                text="New Song + BPM + Key",
                 font=("Monaco", 20, "bold"),
                 fg="#58a6ff",
                 bg="#161b22",
-            ).pack(pady=40)
+            ).pack(pady=30)
             tk.Label(
                 win,
                 text="Song name:",
@@ -817,8 +858,9 @@ class App(tk.Tk):
                 fg="#f0f6fc",
                 insertbackground="#58a6ff",
             )
-            song_e.pack(pady=12, padx=80)
+            song_e.pack(pady=8, padx=80)
             song_e.focus()
+
             tk.Label(
                 win,
                 text="BPM:",
@@ -834,32 +876,61 @@ class App(tk.Tk):
                 fg="#f0f6fc",
                 insertbackground="#58a6ff",
             )
-            bpm_e.pack(pady=12)
+            bpm_e.pack(pady=8)
+
+            tk.Label(
+                win,
+                text="Key (e.g. C# Minor):",
+                font=("Monaco", 13),
+                fg="#f0f6fc",
+                bg="#161b22",
+            ).pack()
+            key_e = tk.Entry(
+                win,
+                width=30,
+                font=("Monaco", 14),
+                bg="#21262d",
+                fg="#f0f6fc",
+                insertbackground="#58a6ff",
+            )
+            key_e.pack(pady=8)
 
             def save_song():
                 song = song_e.get().strip()
-                try:
-                    bpm = int(bpm_e.get().strip())
-                except:
-                    self.log("Invalid BPM", "#f85149")
-                    return
+                bpm_text = bpm_e.get().strip()
+                key = key_e.get().strip()
+
                 if not song:
-                    self.log("Name required", "#f85149")
+                    self.log("Song name required", "#f85149")
                     return
+
+                try:
+                    bpm = int(bpm_text)
+                    if bpm <= 0 or bpm > 400:
+                        raise ValueError
+                except Exception:
+                    self.log("Invalid BPM (1–400)", "#f85149")
+                    return
+
+                if not key:
+                    self.log("Key required", "#f85149")
+                    return
+
                 artist = self.artist_dd.get()
                 if any(
                     s["name"] == song for s in self.config["artists"][artist]["songs"]
                 ):
                     self.log("Song exists", "#ffa657")
                     return
+
                 self.config["artists"][artist]["songs"].append(
-                    {"name": song, "bpm": bpm}
+                    {"name": song, "bpm": bpm, "key": key}
                 )
                 save_config(self.config)
                 self.refresh_from_config()
                 self.show_song()
                 self.song_dd.set(song)
-                self.log(f"Added: {song} ({bpm} BPM)", "#58a6ff")
+                self.log(f"Added: {song} ({bpm} BPM, {key})", "#58a6ff")
                 win.destroy()
                 self.on_song_selected()
 
@@ -966,12 +1037,9 @@ class App(tk.Tk):
             ).pack(pady=40)
 
             def yes_artist():
-                # remove artist and save
                 self.config["artists"].pop(value, None)
                 save_config(self.config)
-                # refresh all dropdowns
                 self.refresh_from_config()
-                # clear artist/song selection + hide dependent sections
                 if hasattr(self, "artist_dd"):
                     self.artist_dd.set("")
                 if hasattr(self, "song_dd"):
@@ -1124,6 +1192,87 @@ class App(tk.Tk):
             height=40,
         ).pack(side=tk.RIGHT, padx=(0, 60), pady=20)
 
+    # ------- filename building & preview -------
+
+    def build_filename(self, include_extension=True):
+        base = self.name_var.get().strip()
+        if not base:
+            return ""
+
+        prefix_parts = []
+
+        # always include subtype if present (with your intentional [:-1])
+        subtype = (
+            self.subtype_dd.get()
+            if hasattr(self, "subtype_dd") and self.subtype_dd.get()
+            else ""
+        )
+        if subtype:
+            prefix_parts.append(subtype.replace(" ", "_")[:-1])
+
+        artist = (
+            self.artist_dd.get()
+            if hasattr(self, "artist_dd") and self.artist_dd.get()
+            else ""
+        )
+        song_name = (
+            self.song_dd.get()
+            if hasattr(self, "song_dd") and self.song_dd.get()
+            else ""
+        )
+
+        bpm = None
+        key = None
+        if (
+            artist
+            and song_name
+            and artist in self.config["artists"]
+            and self.config["artists"][artist]["songs"]
+        ):
+            for s in self.config["artists"][artist]["songs"]:
+                if s["name"] == song_name:
+                    bpm = s.get("bpm", None)
+                    key = s.get("key", "")
+                    break
+
+        # optional prefixes (BPM / artist / song / key)
+        if hasattr(self, "prefix_bpm") and self.prefix_bpm.get() and bpm is not None:
+            prefix_parts.append(str(bpm))
+        if hasattr(self, "prefix_artist") and self.prefix_artist.get() and artist:
+            prefix_parts.append(artist.replace(" ", "_"))
+        if hasattr(self, "prefix_song") and self.prefix_song.get() and song_name:
+            prefix_parts.append(song_name.replace(" ", "_"))
+        if hasattr(self, "prefix_key") and self.prefix_key.get() and key:
+            prefix_parts.append(key.replace(" ", "_"))
+
+        name = base
+        if prefix_parts:
+            name = "_".join(prefix_parts) + "_" + name
+
+        # optional suffix
+        if hasattr(self, "suffix_og") and self.suffix_og.get():
+            name = name + "_og"
+
+        if include_extension:
+            if self.files:
+                ext = self.files[0].suffix
+            else:
+                ext = ""
+            name = name + ext
+
+        return name
+
+    def update_filename_preview(self):
+        filename = self.build_filename(include_extension=True)
+        if filename:
+            self.filename_preview_label.config(
+                text=f"Filename preview: {filename}", fg="#58a6ff"
+            )
+        else:
+            self.filename_preview_label.config(text="Filename preview:", fg="#8b949e")
+
+    # -------------- save --------------
+
     def save(self):
         if not self.files:
             self.log("No file selected!", "#f85149")
@@ -1156,10 +1305,8 @@ class App(tk.Tk):
 
         song_name = self.song_dd.get()
         artist = self.artist_dd.get()
-        bpm = next(
-            s["bpm"]
-            for s in self.config["artists"][artist]["songs"]
-            if s["name"] == song_name
+        _song_info = next(
+            s for s in self.config["artists"][artist]["songs"] if s["name"] == song_name
         )
 
         parts = [
@@ -1171,36 +1318,14 @@ class App(tk.Tk):
         target.mkdir(parents=True, exist_ok=True)
 
         src = self.files[0]
-        base = self.name_var.get().strip()
 
-        prefix_parts = []
+        # build filename WITHOUT extension, then add src.suffix
+        name_no_ext = self.build_filename(include_extension=False)
+        if not name_no_ext:
+            self.log("Invalid name", "#f85149")
+            return
 
-        # always include subtype if present (with your intentional [:-1])
-        subtype = (
-            self.subtype_dd.get()
-            if hasattr(self, "subtype_dd") and self.subtype_dd.get()
-            else ""
-        )
-        if subtype:
-            prefix_parts.append(subtype.replace(" ", "_")[:-1])
-
-        # optional prefixes (BPM / artist / song)
-        if self.prefix_bpm.get():
-            prefix_parts.append(str(bpm))
-        if hasattr(self, "prefix_artist") and self.prefix_artist.get():
-            prefix_parts.append(artist.replace(" ", "_"))
-        if self.prefix_song.get():
-            prefix_parts.append(song_name.replace(" ", "_"))
-
-        name = base
-        if prefix_parts:
-            name = "_".join(prefix_parts) + "_" + name
-
-        # optional suffix
-        if hasattr(self, "suffix_og") and self.suffix_og.get():
-            name = name + "_og"
-
-        dest = target / (name + src.suffix)
+        dest = target / (name_no_ext + src.suffix)
         if dest.exists():
             self.log("File not saved — target filename already exists", "#ffa657")
             return
@@ -1209,92 +1334,6 @@ class App(tk.Tk):
         self.log(f"SAVED 1 file → {target.name}", "#58a6ff")
 
         self.clear_files_only()
-        self.update_existing_files()
-        self.update_save_state()
-
-        if not self.files:
-            self.log("No file selected!", "#f85149")
-            self.update_save_state()
-            return
-        if not all(
-            [
-                self.type_dd.get(),
-                (
-                    getattr(self, "subtype_dd", None).get()
-                    if hasattr(self, "subtype_dd")
-                    else ""
-                ),
-                (
-                    getattr(self, "artist_dd", None).get()
-                    if hasattr(self, "artist_dd")
-                    else ""
-                ),
-                (
-                    getattr(self, "song_dd", None).get()
-                    if hasattr(self, "song_dd")
-                    else ""
-                ),
-                self.name_var.get().strip(),
-            ]
-        ):
-            self.log("Fill all fields!", "#f85149")
-            self.update_save_state()
-            return
-
-        song_name = self.song_dd.get()
-        artist = self.artist_dd.get()
-        bpm = next(
-            s["bpm"]
-            for s in self.config["artists"][artist]["songs"]
-            if s["name"] == song_name
-        )
-
-        parts = [
-            p
-            for p in [self.type_dd.get(), self.subtype_dd.get(), artist, song_name]
-            if p
-        ]
-        target = ROOT_DIR.joinpath(*parts)
-        target.mkdir(parents=True, exist_ok=True)
-
-        src = self.files[0]
-        base = self.name_var.get().strip()
-
-        prefix_parts = []
-
-        # always include subtype if present
-        subtype = (
-            self.subtype_dd.get()
-            if hasattr(self, "subtype_dd") and self.subtype_dd.get()
-            else ""
-        )
-        if subtype:
-            prefix_parts.append(subtype.replace(" ", "_")[:-1])
-
-        # optional prefixes (BPM / song)
-        if self.prefix_bpm.get():
-            prefix_parts.append(str(bpm))
-        if self.prefix_song.get():
-            prefix_parts.append(song_name.replace(" ", "_"))
-
-        name = base
-        if prefix_parts:
-            name = "_".join(prefix_parts) + "_" + name
-
-        # optional suffix
-        if hasattr(self, "suffix_og") and self.suffix_og.get():
-            name = name + "_og"
-
-        dest = target / (name + src.suffix)
-        if dest.exists():
-            self.log("File not saved — target filename already exists", "#ffa657")
-            return
-        else:
-            shutil.copy2(src, dest)
-            self.log(f"SAVED 1 file → {target.name}", "#58a6ff")
-
-        self.clear_files_only()
-        # refresh file list in existing-files section
         self.update_existing_files()
         self.update_save_state()
 
